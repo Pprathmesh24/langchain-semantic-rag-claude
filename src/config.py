@@ -1,8 +1,6 @@
 EMBEDDING_MODEL = "all-mpnet-base-v2"
 CHROMA_DIR = "chroma_db"
 RAG_DATA_DIR = "rag_data"
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 200
 AGENT_MODEL = "claude-haiku-4-5-20251001"
 SIMILARITY_THRESHOLD = 0.3
 MMR_FETCH_K = 20

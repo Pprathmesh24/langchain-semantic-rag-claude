@@ -107,7 +107,11 @@ RAG/
 # Install dependencies
 uv add -r requirements.txt
 
-# Add your documents to rag_data/
+# Create the documents directory and add your files
+mkdir rag_data
+# Drop your PDF, TXT, DOCX, CSV, or HTML files into rag_data/
+# (this directory is gitignored — it holds your personal documents)
+
 # Set your Anthropic API key in .env
 echo "ANTHROPIC_API_KEY=your_key_here" > .env
 
