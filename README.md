@@ -41,11 +41,14 @@ A production-grade Retrieval-Augmented Generation (RAG) pipeline built with Lang
 ### 1. Semantic Chunking
 Rather than splitting documents every N characters (fixed-size chunking), the pipeline uses `SemanticChunker` from LangChain Experimental. It embeds each sentence and measures cosine distance between consecutive sentences — splitting only when it detects a spike in distance, meaning the topic has shifted. This produces chunks that contain complete, coherent ideas instead of arbitrary text slices.
 
-### 2. Maximum Marginal Relevance (MMR) Retrieval
-Standard similarity search returns the top-k most similar chunks — which are often near-duplicates of each other. MMR solves this by fetching a larger candidate pool (`fetch_k`) and then iteratively selecting chunks that are both relevant to the query and maximally different from each other. The `lambda_mult` parameter controls the relevance/diversity tradeoff (0.5 = balanced).
+### 2. Hybrid Retrieval: MMR + Score Threshold Filtering
+The retriever implements a custom two-stage retrieval strategy that combines diversity-aware ranking with minimum relevance enforcement:
 
-### 3. Similarity Score Threshold
-Every retrieval result is filtered against a minimum cosine similarity score before MMR selection runs. This prevents the system from returning loosely related or completely unrelated chunks when the query topic doesn't exist in the documents.
+**Stage 1 — Maximum Marginal Relevance (MMR):** Fetches a large candidate pool (`fetch_k = 20`) from ChromaDB, then iteratively selects `top_k = 5` chunks by maximising a combined objective: relevance to the query and dissimilarity to already-selected chunks. The `lambda_mult` parameter controls the relevance/diversity tradeoff (0.5 = balanced). This eliminates near-duplicate chunks that standard top-k similarity search would return.
+
+**Stage 2 — Cosine Score Threshold Filtering:** Each MMR result's cosine distance is converted to a relevance score (`relevance = 1 - cosine_distance`) and evaluated against `SIMILARITY_THRESHOLD = 0.3`. Chunks below this threshold are discarded. This acts as a hard relevance gate — necessary because MMR's diversity objective can occasionally promote a low-relevance chunk into the final set, and to handle queries whose topic is absent from the corpus entirely.
+
+This two-stage approach is not achievable through LangChain's standard `as_retriever()` API, which does not expose similarity scores in MMR mode. The pipeline instead calls `max_marginal_relevance_search_with_score()` directly on the Chroma collection and wraps the logic in a `RunnableLambda` to remain composable within LCEL chains.
 
 ### 4. Multi-File Type Ingestion
 The ingestion pipeline supports mixed document types in a single directory via a file extension → loader mapping. Adding support for a new file type requires only one line in `FILE_LOADERS`. Supported types:
@@ -94,7 +97,7 @@ RAG/
 | Vector Store | ChromaDB (cosine similarity) |
 | Framework | LangChain + LangChain Experimental |
 | Chunking | SemanticChunker |
-| Retrieval | MMR + Score Threshold |
+| Retrieval | MMR + Cosine Score Threshold (two-step) |
 
 ---
 
